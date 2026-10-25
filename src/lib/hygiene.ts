@@ -69,8 +69,8 @@ export function evaluateContactHygiene(email: string, seenEmails: Set<string>): 
 export function extractContactsFromUnstructuredText(text: string): Contact[] {
   if (!text) return [];
 
-  // Match all email addresses in the text
-  const emailRegex = /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+/g;
+  // Match only clean, standard email addresses with standard TLDs
+  const emailRegex = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}\b/g;
   const matches = text.match(emailRegex) || [];
   
   const seenEmails = new Set<string>();
@@ -82,6 +82,12 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
   matches.forEach((rawEmail, index) => {
     const email = rawEmail.trim().toLowerCase();
     if (seenEmails.has(email)) return;
+
+    // Validate TLD is alphabetic
+    const domainPart = email.split('@')[1];
+    if (!domainPart || !domainPart.includes('.')) return;
+    const tld = domainPart.split('.').pop();
+    if (!tld || !/^[a-zA-Z]{2,10}$/.test(tld)) return;
 
     // Find the line containing this email for context
     const lineIndex = lines.findIndex(l => l.includes(rawEmail));
@@ -105,9 +111,11 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
       const nameMatch = currentLine.match(/(.*?)\s*<[^>]+>/);
       if (nameMatch) {
         const full = nameMatch[1].replace(/["']/g, '').trim();
-        const parts = full.split(' ');
-        firstName = parts[0] || '';
-        lastName = parts.slice(1).join(' ') || '';
+        if (/^[A-Za-z\s.'-]{2,40}$/.test(full)) {
+          const parts = full.split(' ');
+          firstName = parts[0] || '';
+          lastName = parts.slice(1).join(' ') || '';
+        }
       }
     } else {
       // Look for name before comma or tab: "John Doe, john@company.com"
@@ -115,7 +123,7 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
       const emailPartIdx = parts.findIndex(p => p.includes(rawEmail));
       if (emailPartIdx > 0) {
         const potentialName = parts[emailPartIdx - 1];
-        if (potentialName && potentialName.length < 50 && !potentialName.includes('@') && !/\d{4,}/.test(potentialName)) {
+        if (potentialName && /^[A-Za-z\s.'-]{2,40}$/.test(potentialName)) {
           const nameParts = potentialName.split(' ');
           firstName = nameParts[0] || '';
           lastName = nameParts.slice(1).join(' ') || '';
@@ -123,9 +131,20 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
       }
     }
 
+    // If no first name found, check if email has "firstname.lastname@domain.com"
+    if (!firstName) {
+      const local = email.split('@')[0];
+      if (local.includes('.') && !local.includes('+')) {
+        const subparts = local.split('.');
+        if (subparts.length === 2 && /^[a-zA-Z]{2,20}$/.test(subparts[0]) && /^[a-zA-Z]{2,20}$/.test(subparts[1])) {
+          firstName = subparts[0].charAt(0).toUpperCase() + subparts[0].slice(1);
+          lastName = subparts[1].charAt(0).toUpperCase() + subparts[1].slice(1);
+        }
+      }
+    }
+
     // Infer company from domain or adjacent text
-    const domain = email.split('@')[1];
-    company = smartDomainToCompany(domain);
+    company = smartDomainToCompany(domainPart);
 
     const hygiene = evaluateContactHygiene(email, seenEmails);
     seenEmails.add(email);
