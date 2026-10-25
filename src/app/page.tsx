@@ -44,8 +44,16 @@ admin@tempmail.com, Spammy, Bot, FakeCorp, +919876543213
 priya.sharma@nexusventures.in, Priya, Sharma, Nexus Ventures, +919876543214`;
 
 export default function HomePage() {
-  // Settings State
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  // Settings State - load immediately from localStorage to prevent flash/reset
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('reachflow_settings');
+        if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      } catch {}
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Campaign Input State
@@ -104,8 +112,17 @@ Outreach Team`);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Load saved settings from server and localStorage on mount
+  // Load saved settings from server and merge with localStorage on mount
   useEffect(() => {
+    // 1. Immediate sync from localStorage
+    try {
+      const saved = localStorage.getItem('reachflow_settings');
+      if (saved) {
+        setSettings(prev => ({ ...prev, ...JSON.parse(saved) }));
+      }
+    } catch {}
+
+    // 2. Fetch server settings, prioritizing saved local user settings
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
@@ -116,6 +133,7 @@ Outreach Team`);
               setSettings({ ...data.settings, ...JSON.parse(saved) });
             } else {
               setSettings(data.settings);
+              localStorage.setItem('reachflow_settings', JSON.stringify(data.settings));
             }
           } catch {
             setSettings(data.settings);
@@ -125,7 +143,7 @@ Outreach Team`);
       .catch(() => {
         try {
           const saved = localStorage.getItem('reachflow_settings');
-          if (saved) setSettings(JSON.parse(saved));
+          if (saved) setSettings(prev => ({ ...prev, ...JSON.parse(saved) }));
         } catch {}
       });
   }, []);

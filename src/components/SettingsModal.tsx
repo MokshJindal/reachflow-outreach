@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppSettings } from '@/types';
 import { 
   X, Check, AlertCircle, Key, Mail, MessageSquare, 
@@ -16,13 +16,51 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'ai' | 'email' | 'whatsapp' | 'throttling'>('email');
-  const [formData, setFormData] = useState<AppSettings>({ ...settings });
+  const [formData, setFormData] = useState<AppSettings>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('reachflow_settings');
+        if (saved) return { ...settings, ...JSON.parse(saved) };
+      }
+    } catch {}
+    return { ...settings };
+  });
   const [testingEmail, setTestingEmail] = useState(false);
   const [sendingLiveEmail, setSendingLiveEmail] = useState(false);
   const [liveEmailTarget, setLiveEmailTarget] = useState(settings.fromEmail || settings.smtpUser || 'admin@prearn.com');
   const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testingTwilio, setTestingTwilio] = useState(false);
   const [twilioTestResult, setTwilioTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Sync formData whenever modal opens or settings change
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const saved = localStorage.getItem('reachflow_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setFormData(prev => ({ ...prev, ...settings, ...parsed }));
+          if (parsed.fromEmail || parsed.smtpUser) {
+            setLiveEmailTarget(parsed.fromEmail || parsed.smtpUser);
+          }
+          return;
+        }
+      } catch {}
+      setFormData({ ...settings });
+      if (settings.fromEmail || settings.smtpUser) {
+        setLiveEmailTarget(settings.fromEmail || settings.smtpUser);
+      }
+    }
+  }, [isOpen, settings]);
+
+  // Keep localStorage continuously saved on every input change so reload never loses data
+  useEffect(() => {
+    if (formData && (formData.smtpUser || formData.smtpPass || formData.smtpHost || formData.fromEmail)) {
+      try {
+        localStorage.setItem('reachflow_settings', JSON.stringify(formData));
+      } catch {}
+    }
+  }, [formData]);
 
   if (!isOpen) return null;
 
