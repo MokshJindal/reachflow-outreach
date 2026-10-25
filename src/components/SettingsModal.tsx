@@ -38,7 +38,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
       setFormData(prev => ({
         ...prev,
         emailProvider: 'zoho',
-        smtpHost: 'smtppro.zoho.in',
+        smtpHost: 'smtp.zoho.in',
         smtpPort: 465,
         smtpSecure: true,
       }));
@@ -46,7 +46,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
       setFormData(prev => ({
         ...prev,
         emailProvider: 'zoho',
-        smtpHost: 'smtppro.zoho.com',
+        smtpHost: 'smtp.zoho.com',
         smtpPort: 465,
         smtpSecure: true,
       }));
@@ -285,8 +285,8 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 <label className="block text-xs font-medium text-slate-400 mb-2">One-Click Provider Presets:</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'zoho_in', label: 'Zoho Mail (India .in)', activeMatch: formData.smtpHost === 'smtppro.zoho.in' },
-                    { id: 'zoho_com', label: 'Zoho Mail (Global .com)', activeMatch: formData.smtpHost === 'smtppro.zoho.com' },
+                    { id: 'zoho_in', label: 'Zoho Mail (India .in)', activeMatch: formData.smtpHost === 'smtp.zoho.in' || formData.smtpHost === 'smtppro.zoho.in' },
+                    { id: 'zoho_com', label: 'Zoho Mail (Global .com)', activeMatch: formData.smtpHost === 'smtp.zoho.com' || formData.smtpHost === 'smtppro.zoho.com' },
                     { id: 'gmail', label: 'Gmail / Google Workspace', activeMatch: formData.emailProvider === 'gmail' },
                     { id: 'ses', label: 'Amazon SES (ap-south-1)', activeMatch: formData.emailProvider === 'ses' },
                     { id: 'resend', label: 'Resend API', activeMatch: formData.emailProvider === 'resend' },
