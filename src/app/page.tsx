@@ -27,7 +27,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   fromName: 'Outreach Team',
   fromEmail: '',
   replyTo: '',
-  whatsappConfigured: false,
+  whatsappConfigured: true,
+  whatsappProvider: 'personal_direct',
   twilioAccountSid: '',
   twilioAuthToken: '',
   twilioWhatsAppNumber: '',
@@ -90,6 +91,10 @@ Outreach Team`);
   const [testPhoneTarget, setTestPhoneTarget] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+
+  // Personal WhatsApp Queue Modal State
+  const [personalWaQueue, setPersonalWaQueue] = useState<Array<{ contact: Contact; text: string }> | null>(null);
+  const [personalWaIdx, setPersonalWaIdx] = useState(0);
 
   // File Upload & Drag State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -365,6 +370,8 @@ Outreach Team`);
     }
 
     // Step 2: Loop and dispatch with jitter/delay
+    const personalWaList: Array<{ contact: Contact; text: string }> = [];
+
     for (let i = 0; i < validContacts.length; i++) {
       setCurrentIndex(i + 1);
       const contact = validContacts[i];
@@ -378,6 +385,10 @@ Outreach Team`);
       const currentWa = whatsappText
         .replace(/\{\{first_name\}\}/g, contact.firstName || 'there')
         .replace(/\{\{company\}\}/g, contact.company || 'your team');
+
+      if (contact.phone && (channel === 'whatsapp' || channel === 'both') && settings.whatsappProvider === 'personal_direct') {
+        personalWaList.push({ contact, text: currentWa });
+      }
 
       try {
         const res = await fetch('/api/dispatch/send-single', {
@@ -437,6 +448,10 @@ Outreach Team`);
     }
 
     setIsSending(false);
+    if (personalWaList.length > 0) {
+      setPersonalWaQueue(personalWaList);
+      setPersonalWaIdx(0);
+    }
   };
 
   const validContacts = contacts.filter(c => c.status === 'valid');
@@ -1051,6 +1066,20 @@ Outreach Team`);
                       <span className="font-mono text-[10px] text-slate-500">{log.timestamp}</span>
                     </div>
 
+                    {log.contactPhone && (
+                      <div className="pt-1 flex items-center justify-between">
+                        <a
+                          href={`https://wa.me/${log.contactPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(log.whatsappSent || log.bodySent || '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition"
+                        >
+                          <MessageSquare className="w-3 h-3 text-emerald-400" />
+                          <span>Chat from My WhatsApp Profile ↗</span>
+                        </a>
+                      </div>
+                    )}
+
                     {log.errorDetails && (
                       <p className="text-[10px] text-rose-400/90 font-mono mt-0.5">
                         {log.errorDetails}
@@ -1166,6 +1195,104 @@ Outreach Team`);
                 {testSending ? 'Sending...' : 'Send Test Now'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PERSONAL WHATSAPP DIRECT QUEUE MODAL */}
+      {personalWaQueue && personalWaQueue.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Personal WhatsApp Dispatcher</h3>
+                  <p className="text-[11px] text-emerald-300 font-mono">
+                    Lead {personalWaIdx + 1} of {personalWaQueue.length} • Direct from your Phone Profile
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setPersonalWaQueue(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Target Lead Card */}
+            {personalWaQueue[personalWaIdx] && (
+              <div className="space-y-3">
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-white text-sm">
+                      {personalWaQueue[personalWaIdx].contact.firstName || 'Lead'} {personalWaQueue[personalWaIdx].contact.lastName || ''}
+                    </p>
+                    <p className="text-slate-400 text-xs">
+                      {personalWaQueue[personalWaIdx].contact.company ? `${personalWaQueue[personalWaIdx].contact.company} • ` : ''}
+                      <span className="font-mono text-emerald-400">{personalWaQueue[personalWaIdx].contact.phone}</span>
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
+                    100% Free • No Twilio
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                    Personalized Message (AI-Spun):
+                  </label>
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-200 whitespace-pre-line leading-relaxed max-h-40 overflow-y-auto font-sans">
+                    {personalWaQueue[personalWaIdx].text}
+                  </div>
+                </div>
+
+                {/* Primary Action Button */}
+                <div className="pt-2 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const item = personalWaQueue[personalWaIdx];
+                      const cleanPhone = (item.contact.phone || '').replace(/[^0-9]/g, '');
+                      const url = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(item.text)}`;
+                      window.open(url, '_blank');
+                      
+                      if (personalWaIdx < personalWaQueue.length - 1) {
+                        setPersonalWaIdx(prev => prev + 1);
+                      }
+                    }}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Open in WhatsApp Web & Send Now</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                    <button
+                      type="button"
+                      disabled={personalWaIdx === 0}
+                      onClick={() => setPersonalWaIdx(prev => Math.max(0, prev - 1))}
+                      className="px-3 py-1.5 rounded-lg hover:bg-slate-800 disabled:opacity-40"
+                    >
+                      ← Previous Lead
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={personalWaIdx >= personalWaQueue.length - 1}
+                      onClick={() => setPersonalWaIdx(prev => Math.min(personalWaQueue.length - 1, prev + 1))}
+                      className="px-3 py-1.5 rounded-lg hover:bg-slate-800 text-slate-200 disabled:opacity-40"
+                    >
+                      Skip to Next →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

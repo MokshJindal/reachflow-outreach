@@ -33,8 +33,9 @@ export interface AppSettings {
   fromEmail: string;
   replyTo: string;
 
-  // WhatsApp Configuration (Twilio)
+  // WhatsApp Configuration (Personal Profile Direct vs Twilio API)
   whatsappConfigured: boolean;
+  whatsappProvider: 'personal_direct' | 'twilio';
   twilioAccountSid: string;
   twilioAuthToken: string;
   twilioWhatsAppNumber: string;

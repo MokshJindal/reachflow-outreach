@@ -360,68 +360,127 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
           {/* WHATSAPP TAB */}
           {activeTab === 'whatsapp' && (
             <div className="space-y-4">
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-200 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 mt-0.5 text-emerald-400 shrink-0" />
-                <div>
-                  <strong>Twilio WhatsApp API Integration:</strong> Enter your Twilio credentials below to send bulk WhatsApp messages directly from the app. Twilio handles phone formatting and global routing.
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-2">Select WhatsApp Dispatch Method:</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, whatsappProvider: 'personal_direct' })}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      formData.whatsappProvider === 'personal_direct'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-white'
+                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold mb-1 text-emerald-300">
+                      <MessageSquare className="w-4 h-4 text-emerald-400" />
+                      Personal Profile (100% Free)
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Sends directly from <strong>YOUR personal WhatsApp number & profile photo</strong>. Zero 3rd party branding, zero fees.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, whatsappProvider: 'twilio' })}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      formData.whatsappProvider === 'twilio'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-white'
+                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold mb-1">
+                      <Server className="w-4 h-4 text-slate-300" />
+                      Twilio Cloud API (Paid)
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Automated headless API for registered business accounts. Charges per message.
+                    </p>
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Twilio Account SID</label>
-                <input
-                  type="text"
-                  value={formData.twilioAccountSid}
-                  onChange={e => setFormData({ ...formData, twilioAccountSid: e.target.value })}
-                  placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Twilio Auth Token</label>
-                <input
-                  type="password"
-                  value={formData.twilioAuthToken}
-                  onChange={e => setFormData({ ...formData, twilioAuthToken: e.target.value })}
-                  placeholder="••••••••••••••••••••••••••••••••"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Sender WhatsApp Number</label>
-                <input
-                  type="text"
-                  value={formData.twilioWhatsAppNumber}
-                  onChange={e => setFormData({ ...formData, twilioWhatsAppNumber: e.target.value })}
-                  placeholder="e.g. +14155238886 (Twilio Sandbox or Approved Sender)"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">Format: +14155238886 or whatsapp:+14155238886</p>
-              </div>
-
-              {/* Test Twilio Connection */}
-              <div className="pt-2 flex items-center justify-between border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={handleTestTwilio}
-                  disabled={testingTwilio || !formData.twilioAccountSid}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-xl flex items-center gap-2 transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${testingTwilio ? 'animate-spin' : ''}`} />
-                  {testingTwilio ? 'Verifying with Twilio...' : 'Verify Twilio Credentials'}
-                </button>
-
-                {twilioTestResult && (
-                  <div className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
-                    twilioTestResult.ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                  }`}>
-                    {twilioTestResult.ok ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                    <span>{twilioTestResult.message}</span>
+              {formData.whatsappProvider === 'personal_direct' ? (
+                <div className="p-4 bg-emerald-950/20 border border-emerald-800/40 rounded-xl space-y-3 text-xs">
+                  <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>Personal Profile Mode is Active (No API Keys or Paid Accounts Needed!)</span>
                   </div>
-                )}
-              </div>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    In this mode, messages are sent directly from your own WhatsApp. When you launch a campaign, ReachFlow prepares the personalized and AI-varied text for each contact and lets you dispatch them through WhatsApp Web / Desktop with 1 click per lead.
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1 text-slate-400 text-[11px]">
+                    <li><strong className="text-slate-200">100% Free:</strong> No per-message fees or monthly API bills.</li>
+                    <li><strong className="text-slate-200">Authentic Profile:</strong> Recipients see your personal/business name and profile picture.</li>
+                    <li><strong className="text-slate-200">No Third-Party Branding:</strong> No mention of Twilio, Meta Business, or sandbox notices.</li>
+                  </ul>
+                </div>
+              ) : (
+                <div className="space-y-4 pt-2">
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" />
+                    <div>
+                      <strong>Twilio WhatsApp API:</strong> Requires a paid Twilio account and pre-approved WhatsApp templates.
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Twilio Account SID</label>
+                    <input
+                      type="text"
+                      value={formData.twilioAccountSid}
+                      onChange={e => setFormData({ ...formData, twilioAccountSid: e.target.value })}
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Twilio Auth Token</label>
+                    <input
+                      type="password"
+                      value={formData.twilioAuthToken}
+                      onChange={e => setFormData({ ...formData, twilioAuthToken: e.target.value })}
+                      placeholder="••••••••••••••••••••••••••••••••"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Sender WhatsApp Number</label>
+                    <input
+                      type="text"
+                      value={formData.twilioWhatsAppNumber}
+                      onChange={e => setFormData({ ...formData, twilioWhatsAppNumber: e.target.value })}
+                      placeholder="e.g. +14155238886 (Twilio Sender)"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs"
+                    />
+                  </div>
+
+                  {/* Test Twilio Connection */}
+                  <div className="pt-2 flex items-center justify-between border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={handleTestTwilio}
+                      disabled={testingTwilio || !formData.twilioAccountSid}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-xl flex items-center gap-2 transition disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${testingTwilio ? 'animate-spin' : ''}`} />
+                      {testingTwilio ? 'Verifying with Twilio...' : 'Verify Twilio Credentials'}
+                    </button>
+
+                    {twilioTestResult && (
+                      <div className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
+                        twilioTestResult.ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                      }`}>
+                        {twilioTestResult.ok ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                        <span>{twilioTestResult.message}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
