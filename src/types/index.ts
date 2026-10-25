@@ -21,9 +21,9 @@ export interface AppSettings {
   anthropicModel: string;
   variationIntensity: 'subtle' | 'moderate' | 'creative';
   
-  // Email Configuration (SMTP / Gmail / SES / Resend)
+  // Email Configuration (SMTP / Gmail / Zoho / SES / Resend)
   emailConfigured: boolean;
-  emailProvider: 'smtp' | 'gmail' | 'ses' | 'resend';
+  emailProvider: 'smtp' | 'gmail' | 'zoho' | 'ses' | 'resend';
   smtpHost: string;
   smtpPort: number;
   smtpSecure: boolean;

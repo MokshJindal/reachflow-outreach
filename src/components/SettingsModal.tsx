@@ -24,12 +24,28 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
 
   if (!isOpen) return null;
 
-  const handlePresetSelect = (preset: 'gmail' | 'ses' | 'resend' | 'custom') => {
+  const handlePresetSelect = (preset: 'gmail' | 'zoho_in' | 'zoho_com' | 'ses' | 'resend' | 'custom') => {
     if (preset === 'gmail') {
       setFormData(prev => ({
         ...prev,
         emailProvider: 'gmail',
         smtpHost: 'smtp.gmail.com',
+        smtpPort: 465,
+        smtpSecure: true,
+      }));
+    } else if (preset === 'zoho_in') {
+      setFormData(prev => ({
+        ...prev,
+        emailProvider: 'zoho',
+        smtpHost: 'smtppro.zoho.in',
+        smtpPort: 465,
+        smtpSecure: true,
+      }));
+    } else if (preset === 'zoho_com') {
+      setFormData(prev => ({
+        ...prev,
+        emailProvider: 'zoho',
+        smtpHost: 'smtppro.zoho.com',
         smtpPort: 465,
         smtpSecure: true,
       }));
@@ -189,51 +205,98 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
           {activeTab === 'email' && (
             <div className="space-y-4">
               {/* Alert: Google App Password Explained */}
-              <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs space-y-2">
-                <div className="flex items-center gap-2 text-amber-300 font-bold">
-                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Important: Do NOT enter your personal Google login password!</span>
-                </div>
-                <p className="text-slate-300 leading-relaxed text-[11px]">
-                  Google does <strong>not</strong> allow external apps to use your main account password. Instead, Google uses a secure <strong>16-character App Password</strong> that only grants permission to send emails via SMTP without giving access to your Google account or personal data.
-                </p>
-                <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1 text-[11px] text-slate-300">
-                  <div className="font-semibold text-white flex items-center justify-between">
-                    <span>How to get your 16-character Google App Password:</span>
-                    <a 
-                      href="https://myaccount.google.com/apppasswords" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-cyan-400 hover:underline flex items-center gap-1 font-mono text-[10px]"
-                    >
-                      Open Google App Passwords ↗
-                    </a>
+              {formData.emailProvider === 'gmail' && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold">
+                    <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Important: Do NOT enter your personal Google login password!</span>
                   </div>
-                  <ol className="list-decimal pl-4 space-y-0.5 text-slate-400">
-                    <li>Make sure <strong>2-Step Verification</strong> is ON in your Google Account.</li>
-                    <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">myaccount.google.com/apppasswords</a>.</li>
-                    <li>Type an app name (e.g. <code className="text-amber-300 font-mono">ReachFlow</code>) and click <strong>Create</strong>.</li>
-                    <li>Copy the 16-character code (e.g. <code className="text-emerald-300 font-mono">abcd efgh ijkl mnop</code>) and paste it below.</li>
-                  </ol>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    Google does <strong>not</strong> allow external apps to use your main account password. Instead, Google uses a secure <strong>16-character App Password</strong> that only grants permission to send emails via SMTP without giving access to your Google account or personal data.
+                  </p>
+                  <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1 text-[11px] text-slate-300">
+                    <div className="font-semibold text-white flex items-center justify-between">
+                      <span>How to get your 16-character Google App Password:</span>
+                      <a 
+                        href="https://myaccount.google.com/apppasswords" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-cyan-400 hover:underline flex items-center gap-1 font-mono text-[10px]"
+                      >
+                        Open Google App Passwords ↗
+                      </a>
+                    </div>
+                    <ol className="list-decimal pl-4 space-y-0.5 text-slate-400">
+                      <li>Make sure <strong>2-Step Verification</strong> is ON in your Google Account.</li>
+                      <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">myaccount.google.com/apppasswords</a>.</li>
+                      <li>Type an app name (e.g. <code className="text-amber-300 font-mono">ReachFlow</code>) and click <strong>Create</strong>.</li>
+                      <li>Copy the 16-character code (e.g. <code className="text-emerald-300 font-mono">abcd efgh ijkl mnop</code>) and paste it below.</li>
+                    </ol>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Alert: Zoho Mail App Password Explained */}
+              {formData.emailProvider === 'zoho' && (
+                <div className="p-3.5 bg-blue-500/10 border border-blue-500/25 rounded-xl text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-blue-300 font-bold">
+                    <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Zoho Mail Integration Active ({formData.smtpHost})</span>
+                  </div>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    Zoho requires an <strong>Application-Specific Password (App Password)</strong> when Two-Factor Authentication (TFA) is enabled to authenticate external SMTP relays safely.
+                  </p>
+                  <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1 text-[11px] text-slate-300">
+                    <div className="font-semibold text-white flex items-center justify-between">
+                      <span>How to generate a Zoho App Password:</span>
+                      <div className="flex items-center gap-2">
+                        <a 
+                          href="https://accounts.zoho.in/#security/app-passwords" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-cyan-400 hover:underline font-mono text-[10px]"
+                        >
+                          Zoho India (.in) ↗
+                        </a>
+                        <span className="text-slate-600">•</span>
+                        <a 
+                          href="https://accounts.zoho.com/#security/app-passwords" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-cyan-400 hover:underline font-mono text-[10px]"
+                        >
+                          Zoho Global (.com) ↗
+                        </a>
+                      </div>
+                    </div>
+                    <ol className="list-decimal pl-4 space-y-0.5 text-slate-400">
+                      <li>Go to <strong>Zoho Accounts → Security → Application-Specific Passwords</strong>.</li>
+                      <li>Click <strong>Generate New Password</strong> and name it <code className="text-blue-300 font-mono">ReachFlow</code>.</li>
+                      <li>Copy the generated password and paste it into the <strong>SMTP Password</strong> field below.</li>
+                      <li>Enter your full Zoho email in <strong>SMTP Username</strong> (e.g. <code className="text-slate-300 font-mono">you@yourdomain.com</code>).</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
 
               {/* Provider Quick Presets */}
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-2">One-Click Provider Presets:</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'gmail', label: 'Gmail / Google Workspace' },
-                    { id: 'ses', label: 'Amazon SES (ap-south-1)' },
-                    { id: 'resend', label: 'Resend API' },
-                    { id: 'custom', label: 'Custom SMTP' },
+                    { id: 'zoho_in', label: 'Zoho Mail (India .in)', activeMatch: formData.smtpHost === 'smtppro.zoho.in' },
+                    { id: 'zoho_com', label: 'Zoho Mail (Global .com)', activeMatch: formData.smtpHost === 'smtppro.zoho.com' },
+                    { id: 'gmail', label: 'Gmail / Google Workspace', activeMatch: formData.emailProvider === 'gmail' },
+                    { id: 'ses', label: 'Amazon SES (ap-south-1)', activeMatch: formData.emailProvider === 'ses' },
+                    { id: 'resend', label: 'Resend API', activeMatch: formData.emailProvider === 'resend' },
+                    { id: 'custom', label: 'Custom SMTP', activeMatch: formData.emailProvider === 'smtp' && !formData.smtpHost.includes('zoho') },
                   ].map((preset) => (
                     <button
                       key={preset.id}
                       type="button"
                       onClick={() => handlePresetSelect(preset.id as any)}
                       className={`px-3 py-2 text-xs rounded-lg border text-center font-medium transition ${
-                        formData.emailProvider === preset.id
+                        preset.activeMatch
                           ? 'border-indigo-500 bg-indigo-500/20 text-white'
                           : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
                       }`}
