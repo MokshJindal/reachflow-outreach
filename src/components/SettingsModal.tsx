@@ -25,6 +25,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
   if (!isOpen) return null;
 
   const handlePresetSelect = (preset: 'gmail' | 'zoho_in' | 'zoho_com' | 'ses' | 'resend' | 'custom') => {
+    setEmailTestResult(null);
     if (preset === 'gmail') {
       setFormData(prev => ({
         ...prev,
@@ -409,11 +410,21 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 </button>
 
                 {emailTestResult && (
-                  <div className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
-                    emailTestResult.ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                  <div className={`text-xs px-3 py-2 rounded-xl flex items-start justify-between gap-2 max-w-md shadow-lg ${
+                    emailTestResult.ok ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                   }`}>
-                    {emailTestResult.ok ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                    <span>{emailTestResult.message}</span>
+                    <div className="flex items-start gap-1.5 leading-relaxed">
+                      {emailTestResult.ok ? <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />}
+                      <span>{emailTestResult.message}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEmailTestResult(null)}
+                      title="Dismiss message"
+                      className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-slate-800 shrink-0 ml-1 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -534,11 +545,21 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                     </button>
 
                     {twilioTestResult && (
-                      <div className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
-                        twilioTestResult.ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                      <div className={`text-xs px-3 py-2 rounded-xl flex items-start justify-between gap-2 max-w-md shadow-lg ${
+                        twilioTestResult.ok ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                       }`}>
-                        {twilioTestResult.ok ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                        <span>{twilioTestResult.message}</span>
+                        <div className="flex items-start gap-1.5 leading-relaxed">
+                          {twilioTestResult.ok ? <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />}
+                          <span>{twilioTestResult.message}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTwilioTestResult(null)}
+                          title="Dismiss message"
+                          className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-slate-800 shrink-0 ml-1 transition"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     )}
                   </div>

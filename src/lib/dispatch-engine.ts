@@ -153,7 +153,26 @@ export async function testSmtpConnection(settings: Partial<AppSettings>): Promis
     await transporter.verify();
     return { ok: true, message: 'SMTP credentials verified successfully! Connection established.' };
   } catch (err: any) {
-    return { ok: false, message: `Connection failed: ${err.message || 'Unknown error'}` };
+    const rawMsg = err.message || '';
+    if (rawMsg.includes('535') || rawMsg.toLowerCase().includes('authentication failed')) {
+      if (settings.smtpHost?.includes('zoho')) {
+        return { 
+          ok: false, 
+          message: 'Zoho login rejected (535 5.7.8). Fix: 1) Use a Zoho App Password (not your account login password), 2) Check if your account is on .in vs .com, 3) Ensure SMTP access is enabled in Zoho Mail settings.' 
+        };
+      }
+      if (settings.smtpHost?.includes('gmail')) {
+        return { 
+          ok: false, 
+          message: 'Google login rejected (535 5.7.8). Fix: Use a 16-character Google App Password (from myaccount.google.com/apppasswords), NOT your normal Google password.' 
+        };
+      }
+      return {
+        ok: false,
+        message: 'Authentication failed (535 5.7.8). The mail server rejected your username or password. Please check your credentials or generate an App Password.'
+      };
+    }
+    return { ok: false, message: `Connection failed: ${rawMsg || 'Unknown error'}` };
   }
 }
 
