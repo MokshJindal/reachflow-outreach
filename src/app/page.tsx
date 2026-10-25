@@ -91,8 +91,13 @@ Outreach Team`);
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
-  // File Upload Ref
+  // File Upload & Drag State
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [ingestionTab, setIngestionTab] = useState<'upload' | 'paste'>('upload');
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Load saved settings from server and localStorage on mount
   useEffect(() => {
@@ -120,32 +125,55 @@ Outreach Team`);
       });
   }, []);
 
+  const processFile = async (file: File) => {
+    setIsUploadingFile(true);
+    setUploadError(null);
+    setUploadedFileName(file.name);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/contacts/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to process file');
+      }
+
+      if (data.contacts && Array.isArray(data.contacts)) {
+        setContacts(data.contacts);
+        setContactsSummary(data.summary);
+        
+        // Populate text representation
+        const lines = data.contacts.map((c: Contact) => 
+          [c.email, c.firstName || '', c.lastName || '', c.company || '', c.phone || ''].filter(Boolean).join(', ')
+        );
+        setRawContactsText(lines.join('\n'));
+      }
+    } catch (err: any) {
+      console.error('File extraction error:', err);
+      setUploadError(err.message || 'Failed to extract contacts from file');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    processFile(file);
+  };
 
-    const fileName = file.name.toLowerCase();
-    if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
-      Papa.parse(file, {
-        header: false,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const lines = (results.data as string[][]).map(row => row.filter(Boolean).join(', ')).filter(Boolean);
-          handleParseContacts(lines.join('\n'));
-        }
-      });
-    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
-        const lines = data.map(row => row.filter(Boolean).join(', ')).filter(Boolean);
-        handleParseContacts(lines.join('\n'));
-      };
-      reader.readAsBinaryString(file);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
     }
   };
 
@@ -435,12 +463,25 @@ Outreach Team`);
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+          <a
+            href="https://reachflow-outreach.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-semibold transition"
+          >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>{settings.smtpHost ? 'SMTP Connected' : 'Simulation Mode'}</span>
-            <span className="text-slate-600">•</span>
-            <span>{settings.twilioAccountSid ? 'WhatsApp Active' : 'WhatsApp Ready'}</span>
-          </div>
+            <span>Live on Vercel</span>
+            <ArrowRight className="w-3 h-3 ml-0.5" />
+          </a>
+
+          <a
+            href="https://github.com/MokshJindal/reachflow-outreach"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-xs font-medium transition"
+          >
+            <span>GitHub</span>
+          </a>
 
           <button
             onClick={() => setTestModalOpen(true)}
@@ -474,21 +515,6 @@ Outreach Team`);
                 <h2 className="text-sm font-bold text-white uppercase tracking-wider">Recipients & Contacts</h2>
               </div>
               <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept=".csv,.xlsx,.xls,.txt"
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 font-medium px-2 py-1 rounded hover:bg-cyan-500/10 transition flex items-center gap-1"
-                >
-                  <Upload className="w-3 h-3" />
-                  Upload File (.csv, .xlsx)
-                </button>
                 <button
                   type="button"
                   onClick={loadSampleLeads}
@@ -498,7 +524,11 @@ Outreach Team`);
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleParseContacts('')}
+                  onClick={() => {
+                    handleParseContacts('');
+                    setUploadedFileName(null);
+                    setUploadError(null);
+                  }}
                   className="text-xs text-slate-500 hover:text-slate-400 px-2 py-1"
                 >
                   Clear
@@ -506,17 +536,103 @@ Outreach Team`);
               </div>
             </div>
 
-            <p className="text-xs text-slate-400 mb-2">
-              Paste emails or CSV rows (<code className="text-indigo-300">email, first_name, company, phone</code>), or one email per line:
-            </p>
+            {/* Ingestion Mode Selector Tabs */}
+            <div className="flex border-b border-slate-800/80 mb-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setIngestionTab('upload')}
+                className={`pb-2 px-2 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition ${
+                  ingestionTab === 'upload'
+                    ? 'border-cyan-500 text-cyan-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Upload Document (PDF, Excel, Word, CSV)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIngestionTab('paste')}
+                className={`pb-2 px-2 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition ${
+                  ingestionTab === 'paste'
+                    ? 'border-indigo-500 text-indigo-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Paste Raw Text / CSV
+              </button>
+            </div>
 
-            <textarea
-              rows={4}
-              value={rawContactsText}
-              onChange={e => handleParseContacts(e.target.value)}
-              placeholder="e.g.&#10;john.smith@techinnovate.io, John, TechInnovate, +919876543210&#10;sarah@cyberdyne.com, Sarah, Cyberdyne, +919876543211"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono leading-relaxed"
-            />
+            {/* UPLOAD TAB: DRAG & DROP ZONE */}
+            {ingestionTab === 'upload' ? (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
+                onDragLeave={() => setIsDraggingOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
+                  isDraggingOver 
+                    ? 'border-cyan-400 bg-cyan-950/20' 
+                    : 'border-slate-800 hover:border-slate-700 bg-slate-950/50'
+                }`}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".pdf,.xlsx,.xls,.docx,.csv,.tsv,.txt,.vcf,.json"
+                  className="hidden"
+                />
+
+                {isUploadingFile ? (
+                  <div className="flex flex-col items-center gap-2 py-3 text-cyan-400">
+                    <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-xs font-semibold">Extracting contacts from document...</p>
+                    <p className="text-[11px] text-slate-500">Scanning text, emails, phones & tables</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="p-3 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">
+                        Drop your <span className="text-cyan-400">PDF, Excel, Word, or CSV</span> here, or <span className="text-indigo-400 underline">browse</span>
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Extracts emails, names, phones, and company from any document format
+                      </p>
+                    </div>
+                    {uploadedFileName && (
+                      <span className="mt-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 text-[11px] font-mono border border-cyan-500/20">
+                        📄 Loaded: {uploadedFileName}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs text-slate-400 mb-2">
+                  Paste emails or CSV rows (<code className="text-indigo-300">email, first_name, company, phone</code>), or one email per line:
+                </p>
+                <textarea
+                  rows={4}
+                  value={rawContactsText}
+                  onChange={e => handleParseContacts(e.target.value)}
+                  placeholder="e.g.&#10;john.smith@techinnovate.io, John, TechInnovate, +919876543210&#10;sarah@cyberdyne.com, Sarah, Cyberdyne, +919876543211"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono leading-relaxed"
+                />
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="mt-2 p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{uploadError}</span>
+              </div>
+            )}
 
             {/* Hygiene & Verification Summary Bar */}
             {contacts.length > 0 && (

@@ -19,19 +19,15 @@ const ROLE_PREFIXES = new Set([
 
 export function validateEmailSyntax(email: string): boolean {
   if (!email || email.length > 254) return false;
-  // RFC 5322 simplified regex
   const regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
   return regex.test(email);
 }
 
 export function sanitizePhone(phone?: string): string | undefined {
   if (!phone) return undefined;
-  // Strip whitespace, dashes, parens
-  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
   if (!cleaned) return undefined;
-  // Ensure plus prefix for international standard
   if (!cleaned.startsWith('+')) {
-    // If it's a 10-digit Indian number without country code, add +91
     if (cleaned.length === 10) {
       return `+91${cleaned}`;
     }
@@ -40,19 +36,131 @@ export function sanitizePhone(phone?: string): string | undefined {
   return cleaned;
 }
 
+export function smartDomainToCompany(domain: string): string {
+  if (!domain) return '';
+  const genericHosts = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'proton.me', 'aol.com'];
+  if (genericHosts.includes(domain.toLowerCase())) return '';
+  
+  const base = domain.split('.')[0];
+  if (!base) return '';
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+export function evaluateContactHygiene(email: string, seenEmails: Set<string>): { status: Contact['status']; reason?: string } {
+  if (!validateEmailSyntax(email)) {
+    return { status: 'invalid', reason: 'Invalid email syntax (RFC 5322)' };
+  }
+  if (seenEmails.has(email)) {
+    return { status: 'duplicate', reason: 'Duplicate in current batch' };
+  }
+  const [localPart, domain] = email.split('@');
+  if (DISPOSABLE_DOMAINS.has(domain.toLowerCase())) {
+    return { status: 'disposable', reason: `Disposable temporary domain (${domain})` };
+  }
+  if (ROLE_PREFIXES.has(localPart.toLowerCase())) {
+    return { status: 'suppressed', reason: `Generic role mailbox (${localPart}@)` };
+  }
+  return { status: 'valid' };
+}
+
+/**
+ * Universal extractor: parses contacts from ANY free-form unstructured text (PDF, Word, Webpage, etc.)
+ */
+export function extractContactsFromUnstructuredText(text: string): Contact[] {
+  if (!text) return [];
+
+  // Match all email addresses in the text
+  const emailRegex = /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+/g;
+  const matches = text.match(emailRegex) || [];
+  
+  const seenEmails = new Set<string>();
+  const contacts: Contact[] = [];
+
+  // Split into lines for contextual proximity extraction
+  const lines = text.split(/\r?\n/);
+
+  matches.forEach((rawEmail, index) => {
+    const email = rawEmail.trim().toLowerCase();
+    if (seenEmails.has(email)) return;
+
+    // Find the line containing this email for context
+    const lineIndex = lines.findIndex(l => l.includes(rawEmail));
+    const currentLine = lineIndex !== -1 ? lines[lineIndex] : '';
+    const prevLine = lineIndex > 0 ? lines[lineIndex - 1] : '';
+
+    let firstName = '';
+    let lastName = '';
+    let company = '';
+    let phone = '';
+
+    // Check for phone numbers on the same line or adjacent line
+    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+91[-.\s]?[6-9]\d{9}|[6-9]\d{9}/;
+    const phoneMatch = currentLine.match(phoneRegex) || prevLine.match(phoneRegex);
+    if (phoneMatch) {
+      phone = phoneMatch[0];
+    }
+
+    // Check for formatted name: "John Doe <john@company.com>"
+    if (currentLine.includes('<') && currentLine.includes('>')) {
+      const nameMatch = currentLine.match(/(.*?)\s*<[^>]+>/);
+      if (nameMatch) {
+        const full = nameMatch[1].replace(/["']/g, '').trim();
+        const parts = full.split(' ');
+        firstName = parts[0] || '';
+        lastName = parts.slice(1).join(' ') || '';
+      }
+    } else {
+      // Look for name before comma or tab: "John Doe, john@company.com"
+      const parts = currentLine.split(/[,;\t]/).map(p => p.trim());
+      const emailPartIdx = parts.findIndex(p => p.includes(rawEmail));
+      if (emailPartIdx > 0) {
+        const potentialName = parts[emailPartIdx - 1];
+        if (potentialName && potentialName.length < 50 && !potentialName.includes('@') && !/\d{4,}/.test(potentialName)) {
+          const nameParts = potentialName.split(' ');
+          firstName = nameParts[0] || '';
+          lastName = nameParts.slice(1).join(' ') || '';
+        }
+      }
+    }
+
+    // Infer company from domain or adjacent text
+    const domain = email.split('@')[1];
+    company = smartDomainToCompany(domain);
+
+    const hygiene = evaluateContactHygiene(email, seenEmails);
+    seenEmails.add(email);
+
+    contacts.push({
+      id: `cnt_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
+      email,
+      phone: sanitizePhone(phone),
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      company: company || undefined,
+      status: hygiene.status,
+      statusReason: hygiene.reason,
+    });
+  });
+
+  return contacts;
+}
+
 export function parseRawInput(rawText: string): Contact[] {
+  // If it's unstructured text without commas/tabs, use universal extractor
+  if (!rawText.includes(',') && !rawText.includes('\t') && !rawText.includes(';')) {
+    const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const hasSingleEmails = lines.every(l => l.includes('@') && !l.includes(' '));
+    if (!hasSingleEmails) {
+      return extractContactsFromUnstructuredText(rawText);
+    }
+  }
+
   const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const seenEmails = new Set<string>();
   const contacts: Contact[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
-    // Support multiple formats:
-    // 1. "john@company.com"
-    // 2. "John Doe <john@company.com>"
-    // 3. "john@company.com, John, Doe, Acme Corp, +1234567890"
-    // 4. TSV or semicolon separated
     let email = '';
     let firstName = '';
     let lastName = '';
@@ -72,17 +180,14 @@ export function parseRawInput(rawText: string): Contact[] {
       const delimiter = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
       const parts = line.split(delimiter).map(p => p.trim());
       
-      // Check which column has the @
       const emailIdx = parts.findIndex(p => p.includes('@'));
       if (emailIdx !== -1) {
         email = parts[emailIdx].toLowerCase();
-        // Assign other fields heuristically
         const otherParts = parts.filter((_, idx) => idx !== emailIdx);
         if (otherParts.length >= 1) firstName = otherParts[0];
         if (otherParts.length >= 2) lastName = otherParts[1];
         if (otherParts.length >= 3) company = otherParts[2];
-        if (otherParts.length >= 4) phone = otherParts[3];
-        // If phone is in otherParts
+        
         for (const part of otherParts) {
           if (part.startsWith('+') || /^\d{10,14}$/.test(part.replace(/[\s\-]/g, ''))) {
             phone = part;
@@ -90,7 +195,6 @@ export function parseRawInput(rawText: string): Contact[] {
         }
       }
     } else {
-      // Just single email (or email and phone)
       const tokens = line.split(/\s+/);
       const emailToken = tokens.find(t => t.includes('@'));
       if (emailToken) {
@@ -102,27 +206,11 @@ export function parseRawInput(rawText: string): Contact[] {
 
     if (!email) continue;
 
-    // Check hygiene
-    let status: Contact['status'] = 'valid';
-    let statusReason = '';
-
-    if (!validateEmailSyntax(email)) {
-      status = 'invalid';
-      statusReason = 'Invalid email syntax (RFC 5322)';
-    } else if (seenEmails.has(email)) {
-      status = 'duplicate';
-      statusReason = 'Duplicate in current batch';
-    } else {
-      const [localPart, domain] = email.split('@');
-      if (DISPOSABLE_DOMAINS.has(domain)) {
-        status = 'disposable';
-        statusReason = `Disposable/temporary domain (${domain})`;
-      } else if (ROLE_PREFIXES.has(localPart)) {
-        status = 'suppressed';
-        statusReason = `Generic role mailbox (${localPart}@)`;
-      }
+    if (!company && email.includes('@')) {
+      company = smartDomainToCompany(email.split('@')[1]);
     }
 
+    const hygiene = evaluateContactHygiene(email, seenEmails);
     seenEmails.add(email);
 
     contacts.push({
@@ -132,8 +220,8 @@ export function parseRawInput(rawText: string): Contact[] {
       firstName: firstName || undefined,
       lastName: lastName || undefined,
       company: company || undefined,
-      status,
-      statusReason: statusReason || undefined,
+      status: hygiene.status,
+      statusReason: hygiene.reason,
     });
   }
 
