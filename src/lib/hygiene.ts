@@ -58,7 +58,8 @@ export function evaluateContactHygiene(email: string, seenEmails: Set<string>): 
     return { status: 'disposable', reason: `Disposable temporary domain (${domain})` };
   }
   if (ROLE_PREFIXES.has(localPart.toLowerCase())) {
-    return { status: 'suppressed', reason: `Generic role mailbox (${localPart}@)` };
+    // Role addresses (admin@, info@, sales@) are valid for outreach
+    return { status: 'valid', reason: `Role mailbox (${localPart}@)` };
   }
   return { status: 'valid' };
 }

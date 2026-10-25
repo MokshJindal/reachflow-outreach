@@ -1,6 +1,18 @@
 import nodemailer from 'nodemailer';
 import twilio from 'twilio';
+import fs from 'fs';
+import path from 'path';
 import { AppSettings, Contact, SendLogItem, OutreachChannel } from '../types';
+
+function getServerFallbackSettings(): Record<string, any> {
+  try {
+    const configPath = path.join(process.cwd(), 'reachflow-config.json');
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    }
+  } catch {}
+  return {};
+}
 
 export interface DispatchItem {
   contact: Contact;
@@ -18,14 +30,15 @@ export async function sendEmailMessage(
   subject: string,
   body: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const host = settings.smtpHost || process.env.SMTP_HOST || '';
-  const user = settings.smtpUser || process.env.SMTP_USER || '';
-  const pass = settings.smtpPass || process.env.SMTP_PASS || '';
-  const port = settings.smtpPort || parseInt(process.env.SMTP_PORT || '465') || 465;
-  const secure = settings.smtpSecure ?? (process.env.SMTP_SECURE === 'true' || port === 465);
-  const fromName = settings.fromName || process.env.FROM_NAME || 'Outreach Team';
-  const fromEmail = settings.fromEmail || process.env.FROM_EMAIL || user;
-  const replyTo = settings.replyTo || process.env.REPLY_TO || fromEmail;
+  const fallback = getServerFallbackSettings();
+  const host = settings.smtpHost || fallback.smtpHost || process.env.SMTP_HOST || '';
+  const user = settings.smtpUser || fallback.smtpUser || process.env.SMTP_USER || '';
+  const pass = settings.smtpPass || fallback.smtpPass || process.env.SMTP_PASS || '';
+  const port = settings.smtpPort || fallback.smtpPort || parseInt(process.env.SMTP_PORT || '465') || 465;
+  const secure = settings.smtpSecure ?? (fallback.smtpSecure ?? (process.env.SMTP_SECURE === 'true' || port === 465));
+  const fromName = settings.fromName || fallback.fromName || process.env.FROM_NAME || 'Prearn Collaborations Team';
+  const fromEmail = settings.fromEmail || fallback.fromEmail || process.env.FROM_EMAIL || user;
+  const replyTo = settings.replyTo || fallback.replyTo || process.env.REPLY_TO || fromEmail;
 
   // If SMTP is not configured or user is in simulation/test mode
   if (!host || !user || !pass) {
@@ -132,18 +145,25 @@ export async function sendWhatsAppMessage(
 }
 
 export async function testSmtpConnection(settings: Partial<AppSettings>): Promise<{ ok: boolean; message: string }> {
-  if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPass) {
+  const fallback = getServerFallbackSettings();
+  const host = settings.smtpHost || fallback.smtpHost;
+  const user = settings.smtpUser || fallback.smtpUser;
+  const pass = settings.smtpPass || fallback.smtpPass;
+  const port = settings.smtpPort || fallback.smtpPort || 465;
+  const secure = settings.smtpSecure ?? (fallback.smtpSecure ?? (port === 465));
+
+  if (!host || !user || !pass) {
     return { ok: false, message: 'Host, Username, and Password are required.' };
   }
 
   try {
     const transporter = nodemailer.createTransport({
-      host: settings.smtpHost,
-      port: settings.smtpPort || 587,
-      secure: settings.smtpSecure || false,
+      host,
+      port,
+      secure,
       auth: {
-        user: settings.smtpUser,
-        pass: settings.smtpPass,
+        user,
+        pass,
       },
       tls: {
         rejectUnauthorized: false

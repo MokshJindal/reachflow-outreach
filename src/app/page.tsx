@@ -265,7 +265,7 @@ Outreach Team`);
 
   // Preview AI Variations for the first few contacts
   const handlePreviewVariations = async () => {
-    const validContacts = contacts.filter(c => c.status === 'valid');
+    const validContacts = contacts.filter(c => c.status === 'valid' || c.status === 'suppressed');
     if (validContacts.length === 0) {
       alert('Please add at least one valid contact first.');
       return;
@@ -346,7 +346,7 @@ Outreach Team`);
 
   // Launch Full Campaign
   const handleLaunchCampaign = async () => {
-    const validContacts = contacts.filter(c => c.status === 'valid');
+    const validContacts = contacts.filter(c => c.status === 'valid' || c.status === 'suppressed');
     if (validContacts.length === 0) {
       alert('Please enter or upload valid contacts first.');
       return;
@@ -472,7 +472,7 @@ Outreach Team`);
     }
   };
 
-  const validContacts = contacts.filter(c => c.status === 'valid');
+  const validContacts = contacts.filter(c => c.status === 'valid' || c.status === 'suppressed');
   const progressPct = validContacts.length > 0 ? Math.round((currentIndex / validContacts.length) * 100) : 0;
 
   return (
