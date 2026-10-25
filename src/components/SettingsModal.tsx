@@ -188,10 +188,33 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
           {/* EMAIL TAB */}
           {activeTab === 'email' && (
             <div className="space-y-4">
-              <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 mt-0.5 text-indigo-400 shrink-0" />
-                <div>
-                  <strong>Tip for Google Workspace / Gmail:</strong> Use <strong>smtp.gmail.com</strong>, Port <strong>465</strong> (SSL) or <strong>587</strong> (TLS), and an <strong>App Password</strong> generated from your Google Account Security page.
+              {/* Alert: Google App Password Explained */}
+              <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs space-y-2">
+                <div className="flex items-center gap-2 text-amber-300 font-bold">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Important: Do NOT enter your personal Google login password!</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed text-[11px]">
+                  Google does <strong>not</strong> allow external apps to use your main account password. Instead, Google uses a secure <strong>16-character App Password</strong> that only grants permission to send emails via SMTP without giving access to your Google account or personal data.
+                </p>
+                <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1 text-[11px] text-slate-300">
+                  <div className="font-semibold text-white flex items-center justify-between">
+                    <span>How to get your 16-character Google App Password:</span>
+                    <a 
+                      href="https://myaccount.google.com/apppasswords" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-cyan-400 hover:underline flex items-center gap-1 font-mono text-[10px]"
+                    >
+                      Open Google App Passwords ↗
+                    </a>
+                  </div>
+                  <ol className="list-decimal pl-4 space-y-0.5 text-slate-400">
+                    <li>Make sure <strong>2-Step Verification</strong> is ON in your Google Account.</li>
+                    <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">myaccount.google.com/apppasswords</a>.</li>
+                    <li>Type an app name (e.g. <code className="text-amber-300 font-mono">ReachFlow</code>) and click <strong>Create</strong>.</li>
+                    <li>Copy the 16-character code (e.g. <code className="text-emerald-300 font-mono">abcd efgh ijkl mnop</code>) and paste it below.</li>
+                  </ol>
                 </div>
               </div>
 
