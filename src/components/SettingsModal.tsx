@@ -18,6 +18,8 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
   const [activeTab, setActiveTab] = useState<'ai' | 'email' | 'whatsapp' | 'throttling'>('email');
   const [formData, setFormData] = useState<AppSettings>({ ...settings });
   const [testingEmail, setTestingEmail] = useState(false);
+  const [sendingLiveEmail, setSendingLiveEmail] = useState(false);
+  const [liveEmailTarget, setLiveEmailTarget] = useState(settings.fromEmail || settings.smtpUser || 'admin@prearn.com');
   const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testingTwilio, setTestingTwilio] = useState(false);
   const [twilioTestResult, setTwilioTestResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -90,6 +92,29 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
       setEmailTestResult({ ok: false, message: err.message || 'Network request failed' });
     } finally {
       setTestingEmail(false);
+    }
+  };
+
+  const handleSendLiveTestEmail = async () => {
+    setSendingLiveEmail(true);
+    setEmailTestResult(null);
+    try {
+      const dest = liveEmailTarget || formData.fromEmail || formData.smtpUser;
+      const res = await fetch('/api/settings/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          type: 'send_test_email', 
+          settings: formData,
+          targetEmail: dest
+        })
+      });
+      const data = await res.json();
+      setEmailTestResult(data);
+    } catch (err: any) {
+      setEmailTestResult({ ok: false, message: err.message || 'Delivery request failed' });
+    } finally {
+      setSendingLiveEmail(false);
     }
   };
 
@@ -397,20 +422,45 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 </div>
               </div>
 
-              {/* Test Email Connection Button */}
-              <div className="pt-2 flex items-center justify-between border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={handleTestEmail}
-                  disabled={testingEmail || !formData.smtpHost}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-xl flex items-center gap-2 transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${testingEmail ? 'animate-spin' : ''}`} />
-                  {testingEmail ? 'Testing Handshake...' : 'Verify SMTP Connection'}
-                </button>
+              {/* Test Email Connection & Live Send */}
+              <div className="pt-3 border-t border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTestEmail}
+                    disabled={testingEmail || sendingLiveEmail || !formData.smtpHost}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-xl flex items-center gap-2 transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${testingEmail ? 'animate-spin' : ''}`} />
+                    {testingEmail ? 'Testing Handshake...' : 'Verify SMTP Connection'}
+                  </button>
+
+                  <div className="flex items-center gap-2 flex-1 max-w-sm">
+                    <input
+                      type="email"
+                      value={liveEmailTarget}
+                      onChange={e => setLiveEmailTarget(e.target.value)}
+                      placeholder="Destination email (e.g. your Gmail)"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendLiveTestEmail}
+                      disabled={testingEmail || sendingLiveEmail || !formData.smtpHost || !formData.smtpUser}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shrink-0 disabled:opacity-50"
+                    >
+                      <Mail className={`w-3.5 h-3.5 ${sendingLiveEmail ? 'animate-spin' : ''}`} />
+                      {sendingLiveEmail ? 'Sending...' : 'Send Test Mail'}
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Tip: <strong>Verify SMTP Connection</strong> tests server handshake. <strong>Send Test Mail</strong> delivers a real live email to the destination inbox.
+                </p>
 
                 {emailTestResult && (
-                  <div className={`text-xs px-3 py-2 rounded-xl flex items-start justify-between gap-2 max-w-md shadow-lg ${
+                  <div className={`text-xs px-3.5 py-2.5 rounded-xl flex items-start justify-between gap-2 shadow-lg ${
                     emailTestResult.ok ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                   }`}>
                     <div className="flex items-start gap-1.5 leading-relaxed">
