@@ -64,6 +64,48 @@ export function evaluateContactHygiene(email: string, seenEmails: Set<string>): 
   return { status: 'valid' };
 }
 
+// Technical, schema, and metadata domains that should never be treated as outreach leads
+const IGNORED_SYSTEM_DOMAINS = new Set([
+  'schema.org', 'w3.org', 'adobe.com', 'apache.org', 'xml.org',
+  'openxmlformats.org', 'apple.com', 'microsoft.com', 'googleapis.com',
+  'github.com', 'sentry.io', 'example.com', 'domain.com', 'yourdomain.com',
+  'test.com', 'localhost', 'mycompany.com', 'company.com'
+]);
+
+// Non-name words: words that commonly appear before commas/emails in sentences
+const NON_NAME_WORDS = new Set([
+  'the', 'of', 'and', 'in', 'to', 'for', 'with', 'on', 'at', 'from', 'by', 'about',
+  'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between',
+  'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there',
+  'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most',
+  'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than',
+  'too', 'very', 'can', 'will', 'just', 'should', 'now', 'please', 'contact', 'email',
+  'phone', 'mobile', 'details', 'website', 'table', 'page', 'report', 'document', 'system',
+  'platform', 'overview', 'engine', 'service', 'services', 'solution', 'solutions', 'team',
+  'product', 'products', 'send', 'mail', 'bulk', 'outreach', 'blueprint', 'guide',
+  'user', 'admin', 'help', 'info', 'support', 'sales', 'reachflow', 'reach', 'flow',
+  'copyright', 'rights', 'reserved', 'terms', 'privacy', 'policy', 'powered', 'version'
+]);
+
+function isValidHumanName(str: string): boolean {
+  if (!str) return false;
+  const cleaned = str.trim();
+  if (cleaned.length < 2 || cleaned.length > 30) return false;
+  // Must only contain letters, spaces, and optional hyphens/dots
+  if (!/^[A-Za-z\s.'-]{2,30}$/.test(cleaned)) return false;
+
+  const words = cleaned.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length > 3 || words.length === 0) return false;
+
+  // If ANY word is in NON_NAME_WORDS, it is a sentence fragment, NOT a name!
+  for (const w of words) {
+    if (NON_NAME_WORDS.has(w)) return false;
+    if (w.length < 2) return false; // Single characters (except middle initials) usually aren't full names
+  }
+
+  return true;
+}
+
 /**
  * Universal extractor: parses contacts from ANY free-form unstructured text (PDF, Word, Webpage, etc.)
  */
@@ -90,6 +132,10 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
     const tld = domainPart.split('.').pop();
     if (!tld || !/^[a-zA-Z]{2,10}$/.test(tld)) return;
 
+    // Filter out obvious system/metadata artifacts from PDF engines
+    if (IGNORED_SYSTEM_DOMAINS.has(domainPart)) return;
+    if (email.includes('.png@') || email.includes('.jpg@') || email.includes('.pdf@')) return;
+
     // Find the line containing this email for context
     const lineIndex = lines.findIndex(l => l.includes(rawEmail));
     const currentLine = lineIndex !== -1 ? lines[lineIndex] : '';
@@ -112,8 +158,8 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
       const nameMatch = currentLine.match(/(.*?)\s*<[^>]+>/);
       if (nameMatch) {
         const full = nameMatch[1].replace(/["']/g, '').trim();
-        if (/^[A-Za-z\s.'-]{2,40}$/.test(full)) {
-          const parts = full.split(' ');
+        if (isValidHumanName(full)) {
+          const parts = full.split(/\s+/);
           firstName = parts[0] || '';
           lastName = parts.slice(1).join(' ') || '';
         }
@@ -124,23 +170,28 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
       const emailPartIdx = parts.findIndex(p => p.includes(rawEmail));
       if (emailPartIdx > 0) {
         const potentialName = parts[emailPartIdx - 1];
-        if (potentialName && /^[A-Za-z\s.'-]{2,40}$/.test(potentialName)) {
-          const nameParts = potentialName.split(' ');
+        if (isValidHumanName(potentialName)) {
+          const nameParts = potentialName.split(/\s+/);
           firstName = nameParts[0] || '';
           lastName = nameParts.slice(1).join(' ') || '';
         }
       }
     }
 
-    // If no first name found, check if email has "firstname.lastname@domain.com"
+    // If no first name found from line, check if email local-part has clean "firstname.lastname@domain.com"
     if (!firstName) {
       const local = email.split('@')[0];
       if (local.includes('.') && !local.includes('+')) {
         const subparts = local.split('.');
         if (subparts.length === 2 && /^[a-zA-Z]{2,20}$/.test(subparts[0]) && /^[a-zA-Z]{2,20}$/.test(subparts[1])) {
-          firstName = subparts[0].charAt(0).toUpperCase() + subparts[0].slice(1);
-          lastName = subparts[1].charAt(0).toUpperCase() + subparts[1].slice(1);
+          if (!NON_NAME_WORDS.has(subparts[0].toLowerCase()) && !NON_NAME_WORDS.has(subparts[1].toLowerCase())) {
+            firstName = subparts[0].charAt(0).toUpperCase() + subparts[0].slice(1);
+            lastName = subparts[1].charAt(0).toUpperCase() + subparts[1].slice(1);
+          }
         }
+      } else if (/^[a-zA-Z]{3,15}$/.test(local) && !NON_NAME_WORDS.has(local.toLowerCase())) {
+        // e.g. "moksh@prearn.com" -> Moksh
+        firstName = local.charAt(0).toUpperCase() + local.slice(1);
       }
     }
 
@@ -159,6 +210,7 @@ export function extractContactsFromUnstructuredText(text: string): Contact[] {
       company: company || undefined,
       status: hygiene.status,
       statusReason: hygiene.reason,
+      selected: hygiene.status === 'valid' || hygiene.status === 'suppressed',
     });
   });
 
@@ -242,6 +294,7 @@ export function parseRawInput(rawText: string): Contact[] {
       company: company || undefined,
       status: hygiene.status,
       statusReason: hygiene.reason,
+      selected: hygiene.status === 'valid' || hygiene.status === 'suppressed',
     });
   }
 

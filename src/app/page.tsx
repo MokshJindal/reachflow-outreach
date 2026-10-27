@@ -7,7 +7,8 @@ import {
   Mail, MessageSquare, Sparkles, Send, ShieldCheck, 
   Settings, Users, FileText, CheckCircle2, AlertTriangle, 
   Clock, Play, Pause, RotateCcw, Download, Eye, Zap, 
-  HelpCircle, ArrowRight, Check, X, ShieldAlert, Upload
+  HelpCircle, ArrowRight, Check, X, ShieldAlert, Upload,
+  Trash2, Plus, Search, ChevronDown, ChevronUp, Filter, Edit3
 } from 'lucide-react';
 import { Contact, AppSettings, SendLogItem, OutreachChannel, DeliverabilityAudit } from '@/types';
 import SettingsModal from '@/components/SettingsModal';
@@ -111,6 +112,80 @@ Outreach Team`);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Contact Table Review & Search State
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
+  const [showContactTable, setShowContactTable] = useState(true);
+
+  // Toggle selection for a single contact
+  const handleToggleSelectContact = (id: string) => {
+    setContacts(prev => prev.map(c => c.id === id ? { ...c, selected: c.selected === false ? true : false } : c));
+  };
+
+  // Toggle selection for all filtered contacts
+  const handleToggleSelectAll = (selectAll: boolean) => {
+    setContacts(prev => prev.map(c => ({
+      ...c,
+      selected: selectAll ? (c.status !== 'invalid' && c.status !== 'disposable') : false
+    })));
+  };
+
+  // Inline update contact field
+  const handleUpdateContactField = (id: string, field: keyof Contact, value: string) => {
+    setContacts(prev => prev.map(c => {
+      if (c.id === id) {
+        return { ...c, [field]: value };
+      }
+      return c;
+    }));
+  };
+
+  // Delete a specific contact row (e.g. junk extracted from PDF)
+  const handleDeleteContact = (id: string) => {
+    setContacts(prev => {
+      const filtered = prev.filter(c => c.id !== id);
+      setContactsSummary({
+        total: filtered.length,
+        valid: filtered.filter(c => c.status === 'valid').length,
+        disposable: filtered.filter(c => c.status === 'disposable').length,
+        duplicate: filtered.filter(c => c.status === 'duplicate').length,
+        suppressed: filtered.filter(c => c.status === 'suppressed').length,
+        invalid: filtered.filter(c => c.status === 'invalid').length,
+      });
+      return filtered;
+    });
+  };
+
+  // Add a clean manual contact row
+  const handleAddManualContact = () => {
+    const newContact: Contact = {
+      id: `manual_${Date.now()}`,
+      email: '',
+      firstName: '',
+      company: '',
+      phone: '',
+      status: 'valid',
+      selected: true
+    };
+    setContacts(prev => [newContact, ...prev]);
+    setShowContactTable(true);
+  };
+
+  // Remove invalid & disposable garbage rows with 1 click
+  const handleRemoveInvalid = () => {
+    setContacts(prev => {
+      const cleaned = prev.filter(c => c.status !== 'invalid' && c.status !== 'disposable');
+      setContactsSummary({
+        total: cleaned.length,
+        valid: cleaned.filter(c => c.status === 'valid').length,
+        disposable: 0,
+        duplicate: cleaned.filter(c => c.status === 'duplicate').length,
+        suppressed: cleaned.filter(c => c.status === 'suppressed').length,
+        invalid: 0,
+      });
+      return cleaned;
+    });
+  };
 
   // Load saved settings from server and merge with localStorage on mount
   useEffect(() => {
@@ -265,7 +340,9 @@ Outreach Team`);
 
   // Preview AI Variations for the first few contacts
   const handlePreviewVariations = async () => {
-    const validContacts = contacts.filter(c => c.status === 'valid' || c.status === 'suppressed');
+    const validContacts = contacts.filter(c => 
+    c.selected !== false && c.status !== 'invalid' && c.status !== 'disposable' && c.email && c.email.includes('@')
+  );
     if (validContacts.length === 0) {
       alert('Please add at least one valid contact first.');
       return;
@@ -346,7 +423,9 @@ Outreach Team`);
 
   // Launch Full Campaign
   const handleLaunchCampaign = async () => {
-    const validContacts = contacts.filter(c => c.status === 'valid' || c.status === 'suppressed');
+    const validContacts = contacts.filter(c => 
+    c.selected !== false && c.status !== 'invalid' && c.status !== 'disposable' && c.email && c.email.includes('@')
+  );
     if (validContacts.length === 0) {
       alert('Please enter or upload valid contacts first.');
       return;
@@ -472,7 +551,9 @@ Outreach Team`);
     }
   };
 
-  const validContacts = contacts.filter(c => c.status === 'valid' || c.status === 'suppressed');
+  const validContacts = contacts.filter(c => 
+    c.selected !== false && c.status !== 'invalid' && c.status !== 'disposable' && c.email && c.email.includes('@')
+  );
   const progressPct = validContacts.length > 0 ? Math.round((currentIndex / validContacts.length) * 100) : 0;
 
   return (
@@ -687,7 +768,7 @@ Outreach Team`);
                   )}
                   {contactsSummary.suppressed > 0 && (
                     <span className="px-2 py-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                      {contactsSummary.suppressed} Role Blocked
+                      {contactsSummary.suppressed} Role Addresses
                     </span>
                   )}
                 </div>
@@ -695,6 +776,183 @@ Outreach Team`);
                 <span className="text-[11px] text-slate-500">
                   Total Parsed: {contactsSummary.total}
                 </span>
+              </div>
+            )}
+
+            {/* INTERACTIVE CONTACT INGESTION & DATA REVIEW TABLE */}
+            {contacts.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowContactTable(!showContactTable)}
+                      className="text-xs font-bold text-white flex items-center gap-1.5 hover:text-cyan-400 transition"
+                    >
+                      {showContactTable ? <ChevronUp className="w-4 h-4 text-cyan-400" /> : <ChevronDown className="w-4 h-4 text-cyan-400" />}
+                      <span>Review Extracted Contacts ({contacts.length})</span>
+                    </button>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 font-semibold border border-cyan-500/20">
+                      {validContacts.length} Selected to Send
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelectAll(validContacts.length !== contacts.length)}
+                      className="px-2.5 py-1 text-[11px] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                    >
+                      {validContacts.length === contacts.length ? 'Deselect All' : 'Select All'}
+                    </button>
+
+                    {(contactsSummary.disposable > 0 || contactsSummary.invalid > 0) && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveInvalid}
+                        className="px-2.5 py-1 text-[11px] rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 transition"
+                      >
+                        Remove Junk Rows ({contactsSummary.disposable + contactsSummary.invalid})
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleAddManualContact}
+                      className="px-2.5 py-1 text-[11px] rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Lead
+                    </button>
+                  </div>
+                </div>
+
+                {showContactTable && (
+                  <div className="space-y-2">
+                    {/* Search & Filter Bar */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        value={contactSearchQuery}
+                        onChange={e => setContactSearchQuery(e.target.value)}
+                        placeholder="Search by name, email, or company to review data..."
+                        className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+
+                    {/* Table View */}
+                    <div className="border border-slate-800/80 rounded-xl overflow-hidden bg-slate-950/60 max-h-72 overflow-y-auto">
+                      <table className="w-full text-left text-xs text-slate-300">
+                        <thead className="bg-slate-900/90 text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 z-10 border-b border-slate-800">
+                          <tr>
+                            <th className="py-2.5 px-3 w-8">
+                              <input
+                                type="checkbox"
+                                checked={validContacts.length > 0 && validContacts.length === contacts.length}
+                                onChange={(e) => handleToggleSelectAll(e.target.checked)}
+                                className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0"
+                              />
+                            </th>
+                            <th className="py-2.5 px-3">First Name</th>
+                            <th className="py-2.5 px-3">Email Address</th>
+                            <th className="py-2.5 px-3">Company</th>
+                            <th className="py-2.5 px-3">Phone</th>
+                            <th className="py-2.5 px-3">Hygiene</th>
+                            <th className="py-2.5 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850/60">
+                          {contacts
+                            .filter(c => {
+                              if (!contactSearchQuery) return true;
+                              const q = contactSearchQuery.toLowerCase();
+                              return (
+                                c.email.toLowerCase().includes(q) ||
+                                (c.firstName && c.firstName.toLowerCase().includes(q)) ||
+                                (c.company && c.company.toLowerCase().includes(q)) ||
+                                (c.phone && c.phone.includes(q))
+                              );
+                            })
+                            .map((contact) => (
+                              <tr 
+                                key={contact.id} 
+                                className={`hover:bg-slate-900/50 transition ${contact.selected === false ? 'opacity-40' : ''}`}
+                              >
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={contact.selected !== false}
+                                    onChange={() => handleToggleSelectContact(contact.id)}
+                                    className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="text"
+                                    value={contact.firstName || ''}
+                                    onChange={e => handleUpdateContactField(contact.id, 'firstName', e.target.value)}
+                                    placeholder="Name"
+                                    className="bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent focus:border-slate-700 rounded px-1.5 py-0.5 text-xs text-white w-28 focus:outline-none transition"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="email"
+                                    value={contact.email}
+                                    onChange={e => handleUpdateContactField(contact.id, 'email', e.target.value)}
+                                    placeholder="email@company.com"
+                                    className="bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent focus:border-slate-700 rounded px-1.5 py-0.5 text-xs font-mono text-cyan-300 w-48 focus:outline-none transition"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="text"
+                                    value={contact.company || ''}
+                                    onChange={e => handleUpdateContactField(contact.id, 'company', e.target.value)}
+                                    placeholder="Company"
+                                    className="bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent focus:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-300 w-28 focus:outline-none transition"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="text"
+                                    value={contact.phone || ''}
+                                    onChange={e => handleUpdateContactField(contact.id, 'phone', e.target.value)}
+                                    placeholder="+91..."
+                                    className="bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent focus:border-slate-700 rounded px-1.5 py-0.5 text-xs font-mono text-slate-400 w-32 focus:outline-none transition"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                    contact.status === 'valid'
+                                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                      : contact.status === 'disposable'
+                                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                      : contact.status === 'duplicate'
+                                      ? 'bg-slate-800 text-slate-400'
+                                      : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                  }`}>
+                                    {contact.statusReason || contact.status}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteContact(contact.id)}
+                                    title="Delete contact row"
+                                    className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

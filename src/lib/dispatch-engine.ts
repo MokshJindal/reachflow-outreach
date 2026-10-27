@@ -65,20 +65,35 @@ export async function sendEmailMessage(
     });
 
     const fromAddress = fromName ? `"${fromName}" <${fromEmail}>` : fromEmail;
+    const isPrimaryInboxMode = (settings.emailDeliveryMode || fallback.emailDeliveryMode || 'primary_inbox') === 'primary_inbox';
+    const hasHtmlTags = /<[a-z][\s\S]*>/i.test(body);
 
-    const info = await transporter.sendMail({
+    const mailOptions: nodemailer.SendMailOptions = {
       from: fromAddress,
       to: toName ? `"${toName}" <${toEmail}>` : toEmail,
       replyTo: replyTo,
       subject: subject,
       text: body,
-      html: body.includes('<') && body.includes('>') ? body : body.replace(/\n/g, '<br />'),
-      headers: {
-        'X-Mailer': 'ReachFlow-Enterprise-v1.0',
+    };
+
+    // If template has HTML tags, or if marketing mode, include HTML
+    if (hasHtmlTags) {
+      mailOptions.html = body;
+    } else if (!isPrimaryInboxMode) {
+      mailOptions.html = body.replace(/\n/g, '<br />');
+    }
+    // In Primary Inbox mode with plain text, we deliberately OMIT html to look 100% like a personal Apple Mail/Gmail send
+
+    // Headers: ONLY add bulk unsubscribe headers in marketing mode.
+    // Gmail AI places ANY email with List-Unsubscribe into the Promotions tab!
+    if (!isPrimaryInboxMode) {
+      mailOptions.headers = {
         'List-Unsubscribe': `<mailto:${replyTo}?subject=Unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
-      }
-    });
+      };
+    }
+
+    const info = await transporter.sendMail(mailOptions);
 
     return {
       success: true,

@@ -460,6 +460,50 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 </div>
               </div>
 
+              {/* Inbox Placement Strategy */}
+              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-white">Gmail Tab & Deliverability Strategy:</label>
+                  <span className="text-[10px] text-cyan-400 font-mono">Bypasses Promotions Filter</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, emailDeliveryMode: 'primary_inbox' })}
+                    className={`p-2.5 rounded-lg border text-left transition ${
+                      (formData.emailDeliveryMode || 'primary_inbox') === 'primary_inbox'
+                        ? 'border-indigo-500 bg-indigo-500/15 text-white'
+                        : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center gap-1.5 text-indigo-400">
+                      <Check className="w-3.5 h-3.5" />
+                      Primary Inbox Mode (1-to-1)
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                      Sends clean personal 1-to-1 emails. Omits commercial List-Unsubscribe tags and bulk X-Mailer headers that cause Gmail to route messages to Promotions.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, emailDeliveryMode: 'marketing' })}
+                    className={`p-2.5 rounded-lg border text-left transition ${
+                      formData.emailDeliveryMode === 'marketing'
+                        ? 'border-indigo-500 bg-indigo-500/15 text-white'
+                        : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center gap-1.5 text-slate-300">
+                      Commercial Newsletter Mode
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                      Injects RFC 8058 One-Click List-Unsubscribe headers for opt-in consumer marketing lists.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
               {/* Test Email Connection & Live Send */}
               <div className="pt-3 border-t border-slate-800 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -752,6 +796,40 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                   />
                   Automated Circuit Breaker: Auto-pause campaign if bounce rate exceeds 3%
                 </label>
+              </div>
+
+              {/* DNS Authentication (SPF / DKIM / DMARC) Checklist */}
+              <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-2 mt-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs text-white">Custom Domain DNS Health (prearn.com):</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">Critical for Primary Inbox</span>
+                </div>
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span className="text-slate-300 font-mono">1. SPF Record</span>
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Configured (zoho.in)
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 font-mono">2. DKIM Record</span>
+                      <span className="text-amber-400 font-semibold">Missing on DNS</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Add TXT record in domain DNS: Host: <code className="text-cyan-300">zoho._domainkey</code> (Copy key from Zoho Admin Console → Domains → Email Configuration → DKIM).
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 font-mono">3. DMARC Record</span>
+                      <span className="text-amber-400 font-semibold">Missing on DNS</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Add TXT record in domain DNS: Host: <code className="text-cyan-300">_dmarc</code> | Value: <code className="text-cyan-300 font-mono">v=DMARC1; p=none;</code>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

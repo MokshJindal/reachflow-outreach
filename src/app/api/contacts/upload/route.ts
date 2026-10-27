@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
               phone: sanitizePhone(phone),
               status: hygiene.status,
               statusReason: hygiene.reason,
+              selected: hygiene.status === 'valid' || hygiene.status === 'suppressed',
             });
           }
         }

@@ -12,6 +12,7 @@ export interface Contact {
   customFields?: Record<string, string>;
   status: ContactStatus;
   statusReason?: string;
+  selected?: boolean;
 }
 
 export interface AppSettings {
@@ -24,6 +25,7 @@ export interface AppSettings {
   // Email Configuration (SMTP / Gmail / Zoho / SES / Resend)
   emailConfigured: boolean;
   emailProvider: 'smtp' | 'gmail' | 'zoho' | 'ses' | 'resend';
+  emailDeliveryMode?: 'primary_inbox' | 'marketing'; // primary_inbox avoids promotions tab
   smtpHost: string;
   smtpPort: number;
   smtpSecure: boolean;
